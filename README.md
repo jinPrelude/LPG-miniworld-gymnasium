@@ -2,7 +2,7 @@
 
 Gymnasium-compliant reinforcement learning environments from the
 **Learning Progress Graphs (LPG)** paper
-([Xu et al., 2020](https://arxiv.org/abs/2007.08794)).
+([Oh et al., 2020](https://arxiv.org/abs/2007.08794)).
 
 ## Installation
 
@@ -68,8 +68,8 @@ All 15 registered environment IDs at a glance:
 
 This package implements the environments described in:
 
-> Xu, Z., van Hasselt, H., & Silver, D. (2020).
-> *Meta-Gradient Reinforcement Learning with an Objective Discovered Online.*
+> Oh, J., Hessel, M., Czarnecki, W. M., Xu, Z., van Hasselt, H., Singh, S., & Silver, D. (2020).
+> *Discovering Reinforcement Learning Algorithms.*
 > arXiv preprint [arXiv:2007.08794](https://arxiv.org/abs/2007.08794).
 
 ---
