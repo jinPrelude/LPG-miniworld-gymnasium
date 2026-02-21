@@ -130,23 +130,68 @@ class TestNoisyRewards:
         env.close()
 
 
+class TestObservationFormat:
+    """All variants should return float32 ndarray."""
+
+    @pytest.mark.parametrize("key", CHAIN_CONFIGS.keys())
+    def test_obs_is_float32_ndarray(self, key):
+        env = DelayedChainMDPEnv(config=key)
+        obs, _ = env.reset(seed=0)
+        assert isinstance(obs, np.ndarray)
+        assert obs.dtype == np.float32
+        env.close()
+
+    @pytest.mark.parametrize("key", CHAIN_CONFIGS.keys())
+    def test_obs_in_space(self, key):
+        env = DelayedChainMDPEnv(config=key)
+        obs, _ = env.reset(seed=0)
+        assert env.observation_space.contains(obs)
+        for _ in range(5):
+            obs, _, term, _, _ = env.step(env.action_space.sample())
+            if term:
+                obs, _ = env.reset()
+            assert env.observation_space.contains(obs)
+        env.close()
+
+    def test_obs_shape_matches_space(self):
+        env = DelayedChainMDPEnv(config="short")
+        obs, _ = env.reset(seed=0)
+        assert obs.shape == env.observation_space.shape
+        obs, _, _, _, _ = env.step(0)
+        assert obs.shape == env.observation_space.shape
+        env.close()
+
+
+class TestNonDistractorOneHot:
+    """Non-distractor variants should use one-hot encoding."""
+
+    @pytest.mark.parametrize("key", ["short", "short_noisy", "long", "long_noisy"])
+    def test_one_hot_state(self, key):
+        env = DelayedChainMDPEnv(config=key)
+        obs, _ = env.reset(seed=0)
+        # Exactly one 1.0 in obs (one-hot)
+        assert obs.sum() == pytest.approx(1.0)
+        assert obs[0] == 1.0  # step 0
+        env.close()
+
+    @pytest.mark.parametrize("key", ["short", "short_noisy", "long", "long_noisy"])
+    def test_one_hot_advances(self, key):
+        env = DelayedChainMDPEnv(config=key)
+        obs, _ = env.reset(seed=0)
+        obs, _, _, _, _ = env.step(0)
+        assert obs.sum() == pytest.approx(1.0)
+        assert obs[1] == 1.0  # step 1
+        env.close()
+
+
 class TestDistractor:
     """Test distractor variant with binary observations."""
 
     def test_obs_shape(self):
         env = DelayedChainMDPEnv(config="distractor")
         obs, _ = env.reset(seed=0)
+        # 2 relevant + 20 distractor = 22
         assert obs.shape == (22,)
-        assert set(np.unique(obs)).issubset({0, 1})
-        env.close()
-
-    def test_obs_in_space(self):
-        env = DelayedChainMDPEnv(config="distractor")
-        obs, _ = env.reset(seed=0)
-        assert env.observation_space.contains(obs)
-        for _ in range(5):
-            obs, _, _, _, _ = env.step(env.action_space.sample())
-            assert env.observation_space.contains(obs)
         env.close()
 
     def test_relevant_bits(self):
@@ -155,19 +200,7 @@ class TestDistractor:
         obs = env._get_obs()
         # Bit 0: whether a0 is correct
         if env._correct_action == 0:
-            assert obs[0] == 1
+            assert obs[0] == 1.0
         else:
-            assert obs[0] == 0
-        env.close()
-
-
-class TestObservationSpace:
-    """Non-distractor variants should return integer observations."""
-
-    @pytest.mark.parametrize("key", ["short", "short_noisy", "long", "long_noisy"])
-    def test_discrete_obs(self, key):
-        env = DelayedChainMDPEnv(config=key)
-        obs, _ = env.reset(seed=0)
-        assert isinstance(obs, int)
-        assert env.observation_space.contains(obs)
+            assert obs[0] == 0.0
         env.close()
