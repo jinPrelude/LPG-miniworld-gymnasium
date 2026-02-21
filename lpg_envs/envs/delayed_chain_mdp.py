@@ -2,7 +2,8 @@
 
 A binary-action MDP where the first action determines the reward received at
 the end of the episode.  The chain length is sampled once per lifetime (per
-environment instance) and stays fixed across episodes.
+environment instance) and stays fixed across episodes.  Observation is a
+float32 vector (one-hot or binary features).
 """
 
 from __future__ import annotations
@@ -43,15 +44,17 @@ class DelayedChainMDPEnv(gymnasium.Env):
         # Chain length will be sampled on first reset (fixed per lifetime)
         self._chain_length: int | None = None
 
-        # Observation space
+        # Observation space: float32 vector
         if config.distractor_bits > 0:
             obs_dim = 2 + config.distractor_bits  # 2 relevant + N noisy
-            self.observation_space = gymnasium.spaces.MultiBinary(obs_dim)
         else:
-            # +1 because the terminal observation equals chain_length
-            self.observation_space = gymnasium.spaces.Discrete(
-                config.chain_length_max + 1
-            )
+            obs_dim = config.chain_length_max + 1  # one-hot states
+        self.observation_space = gymnasium.spaces.Box(
+            low=0.0,
+            high=1.0,
+            shape=(obs_dim,),
+            dtype=np.float32,
+        )
 
         self.action_space = gymnasium.spaces.Discrete(2)
 
@@ -110,20 +113,22 @@ class DelayedChainMDPEnv(gymnasium.Env):
         truncated = False
         return self._get_obs(), reward, terminated, truncated, self._get_info()
 
-    def _get_obs(self):
+    def _get_obs(self) -> np.ndarray:
         if self.config.distractor_bits > 0:
-            obs_dim = 2 + self.config.distractor_bits
-            obs = np.zeros(obs_dim, dtype=np.int8)
-            obs[0] = 1 if self._correct_action == 0 else 0
+            state_dim = 2 + self.config.distractor_bits
+            obs = np.zeros(state_dim, dtype=np.float32)
+            obs[0] = 1.0 if self._correct_action == 0 else 0.0
             if self._first_action is not None:
                 obs[1] = (
-                    1 if self._first_action == self._correct_action else 0
+                    1.0 if self._first_action == self._correct_action else 0.0
                 )
             obs[2:] = self.np_random.integers(
                 0, 2, size=self.config.distractor_bits
-            )
-            return obs
-        return int(self._current_step)
+            ).astype(np.float32)
+        else:
+            obs = np.zeros(self.config.chain_length_max + 1, dtype=np.float32)
+            obs[self._current_step] = 1.0
+        return obs
 
     def _get_info(self) -> dict:
         return {

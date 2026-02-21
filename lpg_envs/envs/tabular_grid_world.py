@@ -1,8 +1,8 @@
 """Tabular Grid World environment from the LPG paper (Section A.1).
 
 Object locations are fixed per lifetime (i.e., per environment instance) and
-randomised across lifetimes via the seed.  Observation is a scalar state index
-encoding ``agent_position * 2^m + object_presence_bitmask``.
+randomised across lifetimes via the seed.  Observation is a one-hot float32
+vector encoding the (position, object-presence) state.
 """
 
 from __future__ import annotations
@@ -45,8 +45,13 @@ class TabularGridWorldEnv(GridWorldBase):
 
     def _define_observation_space(self) -> gymnasium.spaces.Space:
         num_positions = self.height * self.width
-        num_states = num_positions * (2 ** self.num_objects)
-        return gymnasium.spaces.Discrete(num_states)
+        self._num_tabular_states = num_positions * (2 ** self.num_objects)
+        return gymnasium.spaces.Box(
+            low=0.0,
+            high=1.0,
+            shape=(self._num_tabular_states,),
+            dtype=np.float32,
+        )
 
     def reset(self, seed=None, options=None):
         # When a new seed is provided (= new lifetime) or first call,
@@ -79,10 +84,13 @@ class TabularGridWorldEnv(GridWorldBase):
         assert self._fixed_positions is not None
         self._object_positions[obj_idx] = self._fixed_positions[obj_idx]
 
-    def _get_obs(self) -> int:
+    def _get_obs(self) -> np.ndarray:
         agent_idx = self._agent_pos[0] * self.width + self._agent_pos[1]
         bitmask = 0
         for i in range(self.num_objects):
             if self._object_present[i]:
                 bitmask |= 1 << i
-        return int(agent_idx * (2 ** self.num_objects) + bitmask)
+        state_idx = agent_idx * (2 ** self.num_objects) + bitmask
+        obs = np.zeros(self._num_tabular_states, dtype=np.float32)
+        obs[state_idx] = 1.0
+        return obs

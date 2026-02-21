@@ -1,9 +1,8 @@
 """Random Grid World environment from the LPG paper (Section A.2).
 
 Object locations are randomised every episode.  Objects that are collected
-re-appear at random locations.  Observation is a binary tensor
-``{0,1}^{(num_objects+1) x H x W}`` with channel 0 for the agent and one
-channel per object instance.
+re-appear at random locations.  Observation is a flat float32 vector
+``[agent_onehot | obj0_onehot | ... | objN_onehot]``.
 """
 
 from __future__ import annotations
@@ -45,8 +44,12 @@ class RandomGridWorldEnv(GridWorldBase):
 
     def _define_observation_space(self) -> gymnasium.spaces.Space:
         num_channels = self.num_objects + 1  # +1 for agent channel
-        return gymnasium.spaces.MultiBinary(
-            [num_channels, self.height, self.width]
+        obs_dim = num_channels * self.height * self.width
+        return gymnasium.spaces.Box(
+            low=0.0,
+            high=1.0,
+            shape=(obs_dim,),
+            dtype=np.float32,
         )
 
     def _place_objects(self) -> None:
@@ -67,12 +70,15 @@ class RandomGridWorldEnv(GridWorldBase):
         self._object_positions[obj_idx] = self._random_floor_position(occupied)
 
     def _get_obs(self) -> np.ndarray:
-        obs = np.zeros(
-            (self.num_objects + 1, self.height, self.width), dtype=np.int8
-        )
-        obs[0, self._agent_pos[0], self._agent_pos[1]] = 1
+        num_cells = self.height * self.width
+        num_channels = self.num_objects + 1
+        obs = np.zeros(num_channels * num_cells, dtype=np.float32)
+        # Channel 0: agent position
+        agent_idx = self._agent_pos[0] * self.width + self._agent_pos[1]
+        obs[agent_idx] = 1.0
+        # Channels 1..N: object positions
         for i in range(self.num_objects):
             if self._object_present[i]:
                 r, c = self._object_positions[i]
-                obs[i + 1, r, c] = 1
+                obs[(i + 1) * num_cells + r * self.width + c] = 1.0
         return obs

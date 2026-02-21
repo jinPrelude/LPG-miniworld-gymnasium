@@ -8,14 +8,15 @@ from lpg_envs.envs.tabular_grid_world import TabularGridWorldEnv
 
 
 class TestStateSpace:
-    """Verify observation space matches p * 2^m."""
+    """Verify observation space shape matches (p * 2^m,)."""
 
     @pytest.mark.parametrize("key", TABULAR_CONFIGS.keys())
     def test_state_count(self, key):
         cfg = TABULAR_CONFIGS[key]
         env = TabularGridWorldEnv(config=cfg, action_mode="move_only")
-        expected = env.height * env.width * (2 ** len(cfg.objects))
-        assert env.observation_space.n == expected
+        num_states = env.height * env.width * (2 ** len(cfg.objects))
+        expected_shape = (num_states,)
+        assert env.observation_space.shape == expected_shape
         env.close()
 
 
@@ -61,21 +62,43 @@ class TestObservation:
             assert env.observation_space.contains(obs)
         env.close()
 
+    def test_obs_is_float32_ndarray(self):
+        env = TabularGridWorldEnv(config="dense", action_mode="move_only")
+        obs, _ = env.reset(seed=0)
+        assert isinstance(obs, np.ndarray)
+        assert obs.dtype == np.float32
+        env.close()
+
+    def test_obs_is_one_hot(self):
+        env = TabularGridWorldEnv(config="dense", action_mode="move_only")
+        obs, _ = env.reset(seed=0)
+        assert obs.sum() == 1.0
+        env.close()
+
     def test_obs_encodes_position_and_objects(self):
         env = TabularGridWorldEnv(config="sparse", action_mode="move_only")
         env.reset(seed=0)
         num_objects = env.num_objects
         obs = env._get_obs()
 
-        # Decode
-        bitmask = obs % (2 ** num_objects)
-        agent_idx = obs // (2 ** num_objects)
+        # Decode: find the one-hot index
+        state_idx = int(np.argmax(obs))
+        bitmask = state_idx % (2 ** num_objects)
+        agent_idx = state_idx // (2 ** num_objects)
         row, col = divmod(agent_idx, env.width)
 
         assert (row, col) == env._agent_pos
         for i in range(num_objects):
             expected = env._object_present[i]
             assert bool(bitmask & (1 << i)) == expected
+        env.close()
+
+    def test_obs_changes_after_step(self):
+        env = TabularGridWorldEnv(config="dense", action_mode="move_only")
+        obs0, _ = env.reset(seed=0)
+        obs1, _, _, _, _ = env.step(0)
+        # Observation should still be one-hot after stepping
+        assert obs1.sum() == pytest.approx(1.0)
         env.close()
 
 
