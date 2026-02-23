@@ -23,5 +23,8 @@ demo = [
     "Pillow>=9.0",
 ]
 
+[tool.hatch.build.targets.wheel]
+packages = ["lpg_envs"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

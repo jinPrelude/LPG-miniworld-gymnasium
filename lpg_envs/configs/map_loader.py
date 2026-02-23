@@ -6,12 +6,10 @@ Lines are padded to the width of the longest line.
 
 from __future__ import annotations
 
+from importlib.resources import files
 from pathlib import Path
 
 import numpy as np
-
-# Default maps directory (project_root/maps/)
-_MAPS_DIR = Path(__file__).resolve().parent.parent.parent / "maps"
 
 
 def load_wall_map(map_name: str, maps_dir: Path | str | None = None) -> np.ndarray:
@@ -22,23 +20,30 @@ def load_wall_map(map_name: str, maps_dir: Path | str | None = None) -> np.ndarr
     map_name : str
         Name of the map (without .txt extension).
     maps_dir : Path | str | None
-        Directory containing map files.  Defaults to ``<project_root>/maps/``.
+        Directory containing map files.  Defaults to the built-in
+        ``lpg_envs/maps/`` package directory.
 
     Returns
     -------
     np.ndarray
         Boolean array of shape ``(height, width)`` where ``True`` = wall.
     """
-    if maps_dir is None:
-        maps_dir = _MAPS_DIR
-    maps_dir = Path(maps_dir)
+    if maps_dir is not None:
+        filepath = Path(maps_dir) / f"{map_name}.txt"
+        if not filepath.exists():
+            raise FileNotFoundError(f"Map file not found: {filepath}")
+        text = filepath.read_text()
+    else:
+        resource = files("lpg_envs.maps").joinpath(f"{map_name}.txt")
+        try:
+            text = resource.read_text()
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                f"Map file not found: {map_name}.txt "
+                f"(looked in lpg_envs.maps package)"
+            )
 
-    filepath = maps_dir / f"{map_name}.txt"
-    if not filepath.exists():
-        raise FileNotFoundError(f"Map file not found: {filepath}")
-
-    with open(filepath) as f:
-        raw_lines = f.readlines()
+    raw_lines = text.splitlines()
 
     # Strip trailing newlines but keep content (including spaces)
     lines = [line.rstrip("\n\r") for line in raw_lines]
@@ -50,7 +55,7 @@ def load_wall_map(map_name: str, maps_dir: Path | str | None = None) -> np.ndarr
         lines.pop()
 
     if not lines:
-        raise ValueError(f"Map file is empty: {filepath}")
+        raise ValueError(f"Map file is empty: {map_name}")
 
     # Pad all lines to the same width
     max_width = max(len(line) for line in lines)
