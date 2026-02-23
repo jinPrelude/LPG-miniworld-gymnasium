@@ -92,6 +92,12 @@ This package implements the environments described in:
 > *Discovering Reinforcement Learning Algorithms.*
 > arXiv preprint [arXiv:2007.08794](https://arxiv.org/abs/2007.08794).
 
+Observation shapes are matched with the [groove](https://github.com/EmptyJackson/groove) implementation:
+
+> Jackson, M. O., Zhao, M., Matthews, M., Lu, C., Ellis, B., & Foerster, J. (2024).
+> *Discovering Temporally-Aware Reinforcement Learning Algorithms.*
+> arXiv preprint [arXiv:2402.05828](https://arxiv.org/abs/2402.05828).
+
 ---
 
 ## License
